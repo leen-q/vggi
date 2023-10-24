@@ -86,12 +86,12 @@ function draw() {
     surface.Draw();
 }
 
-function CreateSurfaceData()
+function CreateSurfaceData(maxR = 1)
 {
     let vertexList = [];
     let step = 0.01;
 
-    for (let r=0.25; r<=1; r+=step) {
+    for (let r=0.25; r<=maxR; r+=step) {
         for (let theta=0; theta<=2*Math.PI; theta+=step) {
 
             let x = -(Math.cos(theta) / (2 * r)) - (Math.pow(r, 3) * Math.cos(3 * theta) / 6);
@@ -103,6 +103,14 @@ function CreateSurfaceData()
     }
 
     return vertexList;
+}
+
+// Function to update the surface with the new max value of parameter r
+function updateSurface() {
+    const maxR = parseFloat(document.getElementById("paramR").value);
+    surface.BufferData(CreateSurfaceData(maxR));
+    document.getElementById("currentMaxR").textContent = maxR.toFixed(2);
+    draw();
 }
 
 
