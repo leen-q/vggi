@@ -1,12 +1,11 @@
 A project that implements the Richmond Minimum Surface.
 
 New functionality:
-- Local light source;
-- Gouraud shading;
-- Orthographic projection;
-- Normals analytic calculation.
+- Animated lighting;
+- Light source visualization.
 
-![image](https://github.com/leen-q/vggi/assets/65345209/8eb40a70-4bba-4eca-812d-05bac34f8dd6)
+![image](https://github.com/leen-q/vggi/assets/65345209/f8468f27-0ca1-43f6-a7eb-62df3cfbfb5d)
 
-PA2.gif:
-![PA2gif](https://github.com/leen-q/vggi/assets/65345209/4a0bbb8a-16cd-4a87-afed-08bebddc4d34)
+PA3gif.gif:
+
+![PA3gif](https://github.com/leen-q/vggi/assets/65345209/6751e905-2d6d-4ebc-b168-a2df3d3157dd)
