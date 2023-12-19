@@ -5,6 +5,7 @@ let surface;                    // A surface model
 let lightSource;  
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
+let zoom = 1;
 
 function deg2rad(angle) {
     return angle * Math.PI / 180;
@@ -76,7 +77,7 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     
     /* Set the values of the projection transformation */
-    let projection = m4.orthographic(-2, 2, -2, 2, 8, 12);
+    let projection = m4.orthographic(-8 / zoom, 8 / zoom, -8 / zoom, 8 / zoom, -16, 16);
     
     /* Get the view matrix from the SimpleRotator object.*/
     let modelView = spaceball.getViewMatrix();
@@ -192,9 +193,11 @@ function normalize(a) {
 // Function to update the surface with the new max value of parameter r
 function updateSurface() {
     const maxR = parseFloat(document.getElementById("paramR").value);
+    zoom = parseFloat(document.getElementById("zoom").value);
     let data = CreateSurfaceData(maxR);
     surface.BufferData(data.vertices, data.normal);
     document.getElementById("currentMaxR").textContent = maxR.toFixed(2);
+    document.getElementById("currentZoom").textContent = zoom.toFixed(2);
     draw();
 }
 
