@@ -2,6 +2,7 @@
 
 let gl;                         // The webgl context.
 let surface;                    // A surface model
+let lightSource;  
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
 
@@ -98,6 +99,7 @@ function draw() {
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
     gl.uniformMatrix4fv(shProgram.iModelMatrixNormal, false, transposedModel );
 
+    lightSource.Draw();
     surface.Draw();
 }
 
@@ -209,6 +211,8 @@ function moveLight(time) {
     lightPosition.y = center.y + 1.0; 
     lightPosition.z = center.z + radius * Math.sin(time * speed);
 
+    updateLightSource();
+
     gl.uniform3fv(shProgram.iLightPosition, [lightPosition.x, lightPosition.y, lightPosition.z]);
 }
 
@@ -217,7 +221,55 @@ function animating() {
     draw();
 }
 
+// Function to create a sphere
+function createLightSource() {
+    let vertexList = [];
+    let normalList = [];
+    let step = 0.05;
+  
+    for (let phi = 0; phi <= Math.PI; phi += step) {
+      for (let theta = 0; theta <= 2 * Math.PI; theta += step) {
 
+        let v1 = equationsSphere(phi, theta);
+        let v2 = equationsSphere(phi, theta + step);
+        let v3 = equationsSphere(phi + step, theta);
+        let v4 = equationsSphere(phi + step, theta + step);
+
+        vertexList.push(v1.x, v1.y, v1.z);
+        vertexList.push(v2.x, v2.y, v2.z);
+        vertexList.push(v3.x, v3.y, v3.z);
+        
+        vertexList.push(v2.x, v2.y, v2.z);
+        vertexList.push(v4.x, v4.y, v4.z);
+        vertexList.push(v3.x, v3.y, v3.z);
+
+        normalList.push(v1.x, v1.y, v1.z);
+        normalList.push(v2.x, v2.y, v2.z);
+        normalList.push(v3.x, v3.y, v3.z);
+        
+        normalList.push(v2.x, v2.y, v2.z);
+        normalList.push(v4.x, v4.y, v4.z);
+        normalList.push(v3.x, v3.y, v3.z);
+
+      }
+    }
+  
+    return {vertices: vertexList, normal: normalList};
+}
+
+function equationsSphere(phi, theta) {
+    let radius = 0.25;
+    let x = lightPosition.x + radius * Math.sin(phi) * Math.cos(theta);
+    let y = lightPosition.y + radius * Math.sin(phi) * Math.sin(theta);
+    let z = lightPosition.z + radius * Math.cos(phi);
+
+    return {x, y, z};
+}
+
+function updateLightSource() {
+    const lightSourceData = createLightSource();
+    lightSource.BufferData(lightSourceData.vertices, lightSourceData.normal);
+}
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -235,6 +287,10 @@ function initGL() {
     surface = new Model('Surface');
     let data = CreateSurfaceData(1);
     surface.BufferData(data.vertices, data.normal);
+
+    lightSource = new Model('LightSource');
+    let lightSourceData = createLightSource();
+    lightSource.BufferData(lightSourceData.vertices, lightSourceData.normal);
 
     gl.enable(gl.DEPTH_TEST);
 }
