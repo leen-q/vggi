@@ -93,9 +93,10 @@ function draw() {
     let inversion = m4.inverse(modelViewProjection);
     let transposedModel = m4.transpose(inversion);
 
+    moveLight(Date.now() * 0.001);
+
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection );
     gl.uniformMatrix4fv(shProgram.iModelMatrixNormal, false, transposedModel );
-    gl.uniform3fv(shProgram.iLightPosition, [0.0, 1.0, 0.0]);
 
     surface.Draw();
 }
@@ -195,6 +196,28 @@ function updateSurface() {
     draw();
 }
 
+let lightPosition = { x: 0.0, y: 1.0, z: 0.0 }; 
+
+function moveLight(time) {
+
+    const center = { x: 0.0, y: 0.0, z: 0.0 }; 
+    const radius = 3.0; 
+    const speed = 1.0; 
+
+    // Calculate new light position in a circular path
+    lightPosition.x = center.x + radius * Math.cos(time * speed);
+    lightPosition.y = center.y + 1.0; 
+    lightPosition.z = center.z + radius * Math.sin(time * speed);
+
+    gl.uniform3fv(shProgram.iLightPosition, [lightPosition.x, lightPosition.y, lightPosition.z]);
+}
+
+function animating() {
+    window.requestAnimationFrame(animating);
+    draw();
+}
+
+
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -277,5 +300,6 @@ function init() {
 
     spaceball = new TrackballRotator(canvas, draw, 0);
 
+    animating();
     draw();
 }
