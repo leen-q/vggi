@@ -4,6 +4,10 @@ let gl;                         // The webgl context.
 let surface;                    // A surface model
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
+let maxR = 1;
+let zoom = 1;
+let angle = 0;
+let userPoint = [0.25, 0.0];
 
 function deg2rad(angle) {
     return angle * Math.PI / 180;
@@ -15,15 +19,19 @@ function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
     this.iNormalBuffer = gl.createBuffer();
+    this.iTextCoordBuffer = gl.createBuffer();
     this.count = 0;
 
-    this.BufferData = function(vertices, normal) {
+    this.BufferData = function(vertices, normal, textCoords) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normal), gl.STREAM_DRAW);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTextCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textCoords), gl.STREAM_DRAW);
 
         this.count = vertices.length/3;
     }
@@ -37,6 +45,10 @@ function Model(name) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
         gl.vertexAttribPointer(shProgram.iAttribNormal, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribNormal);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTextCoordBuffer);
+        gl.vertexAttribPointer(shProgram.iAttribTextCoord, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.iAttribTextCoord);
    
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.count);
     }
@@ -53,12 +65,20 @@ function ShaderProgram(name, program) {
 
     this.iAttribNormal = -1;
 
+    this.iAttribTextCoord = -1;
+
     this.iLightPosition = -1;
+
+    this.iAngleInRadians = -1;
+
+    this.iUserPoint = -1;
 
     // Location of the uniform matrix representing the combined transformation.
     this.iModelViewProjectionMatrix = -1;
 
     this.iModelMatrixNormal = -1;
+
+    this.iTMU = -1;
 
     this.Use = function() {
         gl.useProgram(this.prog);
@@ -75,7 +95,7 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     
     /* Set the values of the projection transformation */
-    let projection = m4.orthographic(-2, 2, -2, 2, 8, 12);
+    let projection = m4.orthographic(-8 / zoom, 8 / zoom, -8 / zoom, 8 / zoom, -16, 16);
     
     /* Get the view matrix from the SimpleRotator object.*/
     let modelView = spaceball.getViewMatrix();
@@ -97,12 +117,18 @@ function draw() {
     gl.uniformMatrix4fv(shProgram.iModelMatrixNormal, false, transposedModel );
     gl.uniform3fv(shProgram.iLightPosition, [0.0, 1.0, 0.0]);
 
+    gl.uniform1f(shProgram.iAngleInRadians, deg2rad(angle));
+    gl.uniform2fv(shProgram.iUserPoint, userPoint);
+
+    gl.uniform1i(shProgram.iTMU, 0);
+
     surface.Draw();
 }
 
-function CreateSurfaceData(maxR) {
+function CreateSurfaceData() {
     let vertexList = [];
     let normalList = [];
+    let textCoordList = [];
     let step = 0.01;
     let delta = 0.001;
 
@@ -134,10 +160,23 @@ function CreateSurfaceData(maxR) {
             normalList.push(n2.x, n2.y, n2.z);
             normalList.push(n4.x, n4.y, n4.z);
             normalList.push(n3.x, n3.y, n3.z);
+
+            let t1 = CalculateTextCoord(r, theta);
+            let t2 = CalculateTextCoord(r, theta + step);
+            let t3 = CalculateTextCoord(r + step, theta);
+            let t4 = CalculateTextCoord(r + step, theta + step);
+
+            textCoordList.push(t1.r, t1.theta);
+            textCoordList.push(t2.r, t2.theta);
+            textCoordList.push(t3.r, t3.theta);
+            
+            textCoordList.push(t2.r, t2.theta);
+            textCoordList.push(t4.r, t4.theta);
+            textCoordList.push(t3.r, t3.theta);
         }
     }
 
-    return { vertices: vertexList, normal: normalList };
+    return { vertices: vertexList, normal: normalList, textCoords: textCoordList };
 }
 
 function CalculateNormal(r, theta, delta) {
@@ -164,6 +203,14 @@ function CalculateNormal(r, theta, delta) {
     return normal;
 }
 
+function CalculateTextCoord(r, theta) {
+
+    r = (r - 0.25)/(maxR - 0.25);
+    theta = theta / 2*Math.PI;
+
+    return {r, theta};
+}
+
 function equations(r, theta) {
     let x = -(Math.cos(theta) / (2 * r)) - (Math.pow(r, 3) * Math.cos(3 * theta) / 6);
     let y = -(Math.sin(theta) / (2 * r)) + (Math.pow(r, 3) * Math.sin(3 * theta) / 6);
@@ -188,13 +235,43 @@ function normalize(a) {
 
 // Function to update the surface with the new max value of parameter r
 function updateSurface() {
-    const maxR = parseFloat(document.getElementById("paramR").value);
+    maxR = parseFloat(document.getElementById("paramR").value);
+    zoom = parseFloat(document.getElementById("zoom").value);
+    angle = parseFloat(document.getElementById("angle").value);
+
     let data = CreateSurfaceData(maxR);
-    surface.BufferData(data.vertices, data.normal);
+    surface.BufferData(data.vertices, data.normal, data.textCoords);
+
     document.getElementById("currentMaxR").textContent = maxR.toFixed(2);
+    document.getElementById("currentZoom").textContent = zoom.toFixed(2);
+    document.getElementById("currentAngle").textContent = angle.toFixed(2);
+
+    const userPointElement = document.getElementById("userPointValues");
+    userPointElement.textContent = `[${userPoint[0].toFixed(2)}, ${userPoint[1].toFixed(2)}]`;
+
     draw();
 }
 
+function LoadTexture() {
+
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,255,255]));
+
+    var image = new Image();
+    image.crossOrigin = "anonymous";
+    image.src = "https://i.ibb.co/1TgPH2f/texture-1.jpg";
+    image.addEventListener('load', () => {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+        draw();
+    }
+    );
+}
 
 /* Initialize the WebGL context. Called from init() */
 function initGL() {
@@ -208,10 +285,16 @@ function initGL() {
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
     shProgram.iModelMatrixNormal         = gl.getUniformLocation(prog, "ModelNormalMatrix");
     shProgram.iLightPosition             = gl.getUniformLocation(prog, "lightPosition");
+    shProgram.iAttribTextCoord           = gl.getAttribLocation(prog, "textCoord");
+    shProgram.iTMU                       = gl.getUniformLocation(prog, "tmu");
+    shProgram.iAngleInRadians            = gl.getUniformLocation(prog, "angleInRadians");
+    shProgram.iUserPoint                 = gl.getUniformLocation(prog, "userPoint");
 
     surface = new Model('Surface');
-    let data = CreateSurfaceData(1);
-    surface.BufferData(data.vertices, data.normal);
+    let data = CreateSurfaceData();
+    surface.BufferData(data.vertices, data.normal, data.textCoords);
+
+    LoadTexture();
 
     gl.enable(gl.DEPTH_TEST);
 }
@@ -276,6 +359,49 @@ function init() {
     }
 
     spaceball = new TrackballRotator(canvas, draw, 0);
+    document.addEventListener('keydown', handleKeyPress);
 
-    draw();
+    updateSurface();
+}
+
+function handleKeyPress(event) {
+    let stepSize = 0.05; 
+
+    switch (event.key) {
+        case 'w':
+        case 'W':
+            userPoint[0] += stepSize; 
+            if (userPoint[0] > maxR)
+            {
+                userPoint[0] = 0.25;
+            }
+            break;
+        case 's':
+        case 'S':
+            userPoint[0] -= stepSize; 
+            if (userPoint[0] < 0.25)
+            {
+                userPoint[0] = maxR;
+            }
+            break;
+        case 'a':
+        case 'A':
+            userPoint[1] -= stepSize; 
+            if (userPoint[1] < 0)
+            {
+                userPoint[1] = 2 * Math.PI;;
+            }
+            break;
+        case 'd':
+        case 'D':
+            userPoint[1] += stepSize; 
+            if (userPoint[1] > 2 * Math.PI)
+            {
+                userPoint[1] = 0;
+            }
+            break;
+        default:
+            return; 
+    }
+    updateSurface();
 }
